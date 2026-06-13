@@ -252,14 +252,15 @@ La "Tarjeta de Presentación" de Kafka. Cuando un cliente (Python o la UI) se co
 •	Si te conectas desde tu Windows, Kafka te devuelve localhost:29092. 
 
 Código:
-          # ---- Controller configuration ----
-          KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
+
+        # ---- Controller configuration ----
+        KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
 
 Enlaza el nombre lógico "CONTROLLER" con el socket físico del puerto 9093 definido en los Listeners.
 
 Código:
 
-          KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+        KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
 
 Si tuvieras varios servidores de Kafka, ellos hablarían entre sí usando el protocolo PLAINTEXT (puerto 9092).
 
@@ -272,12 +273,14 @@ Código:
 La regla de la supervivencia (Replicación). Estas variables le dicen a Kafka: "Copia los datos de control interno (offsets y transacciones) a '1' servidor". ¿Por qué 1? Porque solo tienes UN contenedor de Kafka levantado. Si tuvieras 3 contenedores de Kafka, esto tendría que ser 3 para que los datos sobrevivan si un servidor se quema.
 
 Código:
+
          # ---- Protocol mapping ----
          KAFKA_LISTENER_SECURITY_PROTOCOL_MAP:          PLAINTEXT:PLAINTEXT,PLAINTEXT_EXTERNAL:PLAINTEXT,CONTROLLER:PLAINTEXT
 
 Mapea los nombres de los listeners a protocolos de seguridad. En este caso, todo es PLAINTEXT (sin encriptación SSL/SASL), que es lo correcto para un entorno de aprendizaje local.
 
 Código:
+
        # ---- Storage ----
        KAFKA_LOG_DIRS: /tmp/kraft-combined-logs
 
@@ -286,14 +289,16 @@ El directorio físico dentro del contenedor Linux donde se guardarán los mensaj
 **Sección 2: La Interfaz Gráfica (kafka-ui)**
 
 Código:
+
         kafka-ui:
         image: provectuslabs/kafka-ui:latest
-       container_name: kafka-ui
+        container_name: kafka-ui
 
 
 Instancia una herramienta visual muy popular para no tener que usar la terminal negra de Linux para ver los mensajes.
 
 Código:
+
         depends_on:
          - kafka
 
@@ -307,6 +312,7 @@ Código:
 Expone la interfaz web en tu navegador Windows: http://localhost:8080.
 
 Código:
+
         environment:
           KAFKA_CLUSTERS_0_NAME: local-kafka
 
@@ -323,7 +329,7 @@ Ahora volvemos al desarrollo del proyecto. Levantaremos el docker-compose para c
 
 Código:
 
-              docker compose up -d
+         docker compose up -d
 
 
 ![image](https://github.com/user-attachments/assets/4d925b50-d273-4e82-a664-4f49d6737a70)
@@ -524,6 +530,7 @@ Código:
 •	value_serializer: Kafka exige que los Values sean bytes. Esta lambda hace un proceso de 2 pasos: json.dumps(v) convierte el diccionario en un string JSON, y .encode("utf-8") lo convierte en bytes.
 
   Código:
+  
           EVENT_TYPES = ["PAGE_VIEW", "ADD_TO_CART", "PURCHASE"]
           INVALID_EVENT_TYPES = ["CLICK", "VIEW", "PAY"]
           
@@ -553,6 +560,7 @@ Código:
 *3. La Fábrica de Eventos (Simulando Datos Sucios)*
 
 Código:
+
         def generate_event():
         is_invalid = random.random() < 0.25
         
@@ -609,6 +617,7 @@ Código:
 •	Si el campo a corromper era el monto, genera un número negativo (lo cual es un error crítico en finanzas).
 
 Código:
+
         "currency": None if invalid_field == "currency" else currency,
         "event_timestamp": random_timestamp_last_6_days().isoformat(),
 
@@ -616,9 +625,9 @@ Código:
 
 Código:
 
-        "is_valid": not is_invalid,
-        "invalid_field": invalid_field
-    }
+          "is_valid": not is_invalid,
+          "invalid_field": invalid_field
+       }
 
 •	Bandera de calidad: Pone True o False para que los sistemas downstream puedan filtrar rápido. invalid_field dice exactamente por qué falló (esto es oro puro para hacer dashboards de "Calidad de Datos").
 
@@ -640,7 +649,7 @@ Código:
 
 Código:
 
-        key, event = generate_event()
+         key, event = generate_event()
 
 •	Llama a la fábrica y desempaqueta la tupla.
 
@@ -686,7 +695,7 @@ Código:
 
 código:
 
-        ./kafka-topics.sh --create --topic raw_events --bootstrap-server kafka:9092 --partitions 3 --replication-factor 1
+         ./kafka-topics.sh --create --topic raw_events --bootstrap-server kafka:9092 --partitions 3 --replication-factor 1
 
 <mark>**NOTA: ¿Qué es lo que quiere decir este código?**</mark>
 
@@ -792,29 +801,331 @@ Código:
     
             consumer.commit()
 
+#### 🧠 EXPLICACIÓN DEL CÓDIGO
 
-![image]()
+Ahora pasare a explicar línea por línea en que consiste el presente código.
 
-![image]()
+**1.	Importaciones y Configuración Arquitectónica**
 
-![image]()
+Código:
 
-![image]()
+        import json
+        from kafka import KafkaConsumer, KafkaProducer
 
-![image]()
+•	Importamos las herramientas necesarias. Usamos un solo script para hacer dos cosas: consumir (leer) y producir (escribir).
 
-![image]()
+Código:
 
-![image]()
+        BOOTSTRAP_SERVERS="localhost:29092"
+        INPUT_TOPIC="raw_events"
+        OUTPUT_TOPIC="clean_events"
+        GROUP_ID="silver-stream-processor"
 
-![image]()
+•	Arquitectura Medallion en Kafka: Aquí defines el flujo de tus datos. Entran por raw_events (Capa Bronze) y salen por clean_events (Capa Silver).
+•	GROUP_ID: Este es el "DNI" de este script ante los ojos de Kafka. Si este programa se apaga, Kafka recordará que "silver-stream-processor" leyó hasta cierto punto, y cuando lo enciendas de nuevo, continuará exactamente desde ahí.
 
-![image]()
+Código:
 
-![image]()
+        VALID_EVENT_TYPES = ["PAGE_VIEW", "ADD_TO_CART", "PURCHASE"]
 
-![image]()
+•	Diccionario de datos: Aquí definimos la "verdad" de nuestro negocio. Cualquier cosa que no esté en esta lista se considerará basura.
 
-![image]()
+**2.	El Consumidor (Lectura del caos)**
 
-![image]()
+Código:
+
+        consumer = KafkaConsumer(
+            INPUT_TOPIC,
+            bootstrap_servers="localhost:29092",
+            group_id=GROUP_ID,
+            auto_offset_reset="earliest",
+
+•	Nos conectamos al tópico sucio. earliest significa que, si es la primera vez que corremos esto, leerá todos los mensajes históricos acumulados.
+
+Código:
+
+         enable_auto_commit=False,
+
+•	🔥 ¡LA LÍNEA MÁS IMPORTANTE DE SEGURIDAD DE ESTE CÓDIGO!
+•	Por defecto, Kafka guarda tu progreso en cuanto lee el mensaje. Si lo apagas aquí, perderías datos. Al ponerlo en False, le dices a Kafka: "No anotes mi progreso hasta que yo te diga explícitamente que terminé de procesarlo". Esto garantiza la semántica At-Least-Once (Cero pérdidas de datos).
+
+Código:
+
+           key_deserializer=lambda k: k.decode("utf-8") if k else None,
+           value_deserializer=lambda v: json.loads(v.decode("utf-8"))
+       )
+
+•	Deserialización Inversa: El productor convirtió el diccionario a Bytes. Esto hace el proceso inverso: Bytes → String → Diccionario de Python. 
+
+Ahora puedes escribir event["amount"] como si fuera un objeto normal de Python.
+
+**3.	El Productor (Preparación para lo limpio)**
+
+Código:
+
+        producer = KafkaProducer(
+            bootstrap_servers="localhost:29092",
+            key_serializer=lambda k: k.encode("utf-8") if k else None,
+            value_serializer=lambda v: json.dumps(v).encode("utf-8")
+        )
+
+•	Es la misma configuración del primer productor. Se prepara para inyectar los datos ya limpios al nuevo tópico. Convirtiendo diccionarios a Bytes otra vez.
+
+**4.	La Lógica de Negocio (El filtro de calidad)**
+
+Código:
+
+        def is_valid_event(event):
+            if not event.get("customer_id"):
+                return False
+
+•	El truco  .get(): En lugar de hacer event["customer_id"] (que haría explotar el código si el campo no existe con un KeyError), usamos .get(). Si el campo no viene, devuelve None (que en Python es falso), y rechaza el evento.
+
+Código:
+
+       if event.get("event_type") not in VALID_EVENT_TYPES:
+           return False
+
+•	Filtro de Catálogo: Si llega un "CLICK" o "VIEW" (los datos sucios que inventó tu productor), lo bloquea.
+
+Código:
+
+       if event.get("amount") is None or event.get("amount") <= 0:
+           return False
+
+•	Regla de Negocio Financiero: Un monto nulo o negativo (que el productor generaba aleatoriamente) es inválido. Se descarta. Un cliente no puede pagar cantidades negativas.
+
+Código:
+
+        if not event.get("currency"):
+            return False
+        if event.get("is_valid") is not True:
+            return False
+        return True
+
+•	Verificaciones finales de moneda y una redundancia de seguridad usando la bandera que venía en el JSON original.
+
+5.	El Bucle Infinito (El Motor en marcha)
+
+Código:
+
+        print("Starting Silver Stream Processor....")
+
+        for message in consumer:
+
+•	El bucle se queda "vivo" eternamente, esperando que lleguen mensajes del tópico raw_events.
+
+Código:
+
+        key = message.key
+        event = message.value
+
+•	Extrae la llave (ej. CUST_1) y el diccionario JSON que ya Python convirtió en un objeto.
+
+Código:
+
+        if is_valid_event(event):
+            producer.send(
+                topic=OUTPUT_TOPIC,
+                key=key,
+                value=event
+            )
+            print(f"FORWARDED | key={key} | event_type={event['event_type']}")
+
+•	El happy path: Si pasó todas las reglas de negocio, lo inyecta en el tópico clean_events.
+
+•	Detalle vital: ¡Estamos pasando la misma key! Esto asegura que el orden del cliente se mantenga intacto en la capa Silver.
+
+Código:
+
+        else:
+            print(f"DROPPED | key={key} | reason=invalid")
+
+•	El camino de la basura: Si no pasó la validación, simplemente lo ignora e imprime que lo tiró. 
+
+
+
+Código:
+              
+        consumer.commit()
+
+•	La línea que cierra el ciclo de seguridad. Como pusimos enable_auto_commit=False arriba, el avance de lectura solo se guarda si el código llega hasta esta línea final. Si el script se mata a mitad del if/else, el commit no pasa, y al reiniciar, Kafka volverá a mandar el último mensaje. Cero pérdidas de datos.
+
+El resultado visual en tu consola
+
+Cuando ejecutes esto (junto con el producer.py en otra ventana), verás algo así, demostrando que tu filtro de calidad funciona:
+
+text
+FORWARDED | key=CUST_2 | event_type=PAGE_VIEW
+DROPPED   | key=CUST_1 | reason=invalid  <-- (Era un monto negativo o un CLICK)
+FORWARDED | key=CUST_3 | event_type=PURCHASE
+DROPPED   | key=CUST_5 | reason=invalid  <-- (Faltaba el customer_id)
+
+
+•	Ahora en la terminal corremos el archivo stream_processor.py.
+
+código:
+
+         python stream_processor.py
+
+
+![image](https://github.com/user-attachments/assets/1c3e9a15-ce3b-4ed3-a16b-4069b366c4a9)
+
+Luego vamos a la interface de usuario de Kafka.
+
+Aquí se puede observar los desplazamientos
+
+![image](https://github.com/user-attachments/assets/c08361fc-c996-43b8-98ec-1c9a7c6af6b7)
+
+Y ahora observamos en pestaña de consumer.
+
+
+![image](https://github.com/user-attachments/assets/4f201689-ce24-4ba9-ade4-32a6b9a3502b)
+
+•	CAPA DORADA CON SNOWFLAKE
+
+1.	Creamos una base datos.
+
+![image](https://github.com/user-attachments/assets/7af89d7a-2427-408d-a409-d65a08cd290d)
+
+2.	Creamos el esquema.
+
+![image](https://github.com/user-attachments/assets/a10c2244-00d1-4bf8-9574-310f14bf44ff)
+
+3.	Creamos una tabla.
+
+![image](https://github.com/user-attachments/assets/6a68cce8-240e-45c6-a4c2-6aa10f032973)
+
+![image](https://github.com/user-attachments/assets/6f16a0f0-faff-40cd-815d-a37973982ada)
+
+4.	Ahora vamos a VSC y creamos un archivo llamado snowflake_consumer.py.
+
+Código:
+
+        import json
+        from kafka import KafkaConsumer
+        import snowflake.connector
+        from snowflake.connector.pandas_tools import write_pandas
+        import pandas as pd
+
+        BOOTSTRAP_SERVERS="localhost:29092"
+        TOPIC_NAME="clean_events"
+        GROUP_ID = "snowflake-loader"
+
+        SNOWFLAKE_CONFIG = {
+            "user" : "<<USERNAME>>",
+            "password" : "<<PASSWORD>>",
+            "account": "<<ACCOUNT>>",
+            "warehouse" : "COMPUTE_WH",
+            "database" : "KAFKA_DB",
+            "schema" : "STREAMING"
+        }
+
+        BATCH_SIZE = 10
+
+       consumer = KafkaConsumer(
+            TOPIC_NAME,
+            bootstrap_servers= “localhost:29092”,
+            group_id=GROUP_ID,
+            enable_auto_commit=False,
+            auto_offset_reset="earliest",
+            key_deserializer=lambda k: k.decode("utf-8") if k else None,
+            value_deserializer=lambda v: json.loads(v.decode("utf-8"))
+        )
+
+        sf_conn = snowflake.connector.connect(**SNOWFLAKE_CONFIG)
+
+        print("Connected to Snowflake")
+        print("Starting Kafka -> Snowflake Loader...")
+
+        buffer = []
+
+        def flush_to_snowflake(records):
+            df = pd.DataFrame(records)
+            df.columns = [c.upper() for c in df.columns]
+
+            success, nchunks, nrows, _ = write_pandas(
+                conn=sf_conn,
+                df=df,
+                table_name="KAFKA_EVENTS_SILVER"
+            )
+
+            if not success:
+                raise Exception("Snowflake insert failed")
+    
+            print(f"Inserted {nrows} rows into Snowflake")
+
+        for message in consumer:
+            event = message.value
+            buffer.append({
+                "event_id": event["event_id"],
+                "customer_id" : event["customer_id"],
+                "event_type" : event["event_type"],
+                "amount" : event["amount"],
+                "currency" : event["currency"],
+                "event_timestamp" : event["event_timestamp"]
+            })
+
+            if len(buffer) >= BATCH_SIZE:
+                try:
+                    flush_to_snowflake(buffer)
+                    consumer.commit()
+                    buffer.clear()
+                except EXCEPTION as e:
+                    print(f"ERROR inserting batch: {e}")
+
+
+5.	Ahora en la terminal, antes de ejecutar el código anterior, vamos a conectar snowflake con nuestro código de python y también instalar pandas para convertir los datos en un marco de datos(DataFrame) y, pyarrow.
+
+Código:
+
+        Pip install snowflake-connector-python pandas pyarrow
+
+![image](https://github.com/user-attachments/assets/8900148b-0a18-4853-b174-b33a75090b38)
+
+Código:
+
+         Python snowflake_consumer.py
+
+
+![image](https://github.com/user-attachments/assets/81bb3284-a1e4-4d25-9ae1-98f5210183f1)
+
+![image](https://github.com/user-attachments/assets/440b6ddd-e7ce-4e9e-ad89-a012ce78b152)
+
+Ahora verificamos la conexión en snowflake.
+
+![image](https://github.com/user-attachments/assets/216ba69a-bc97-4e1d-ab16-80dbc356d1ec)
+
+Luego en un rato lo interrumpimos con control C
+
+Ahora procesamos los datos de snowflake y crearemos algunas tablas.
+
+![image](https://github.com/user-attachments/assets/b0b4eeef-19af-498b-9cd3-380db42a1cc0)
+
+![image](https://github.com/user-attachments/assets/a01558f6-f7c6-460c-be91-9b08765f4ffc)
+
+Luego verificamos si se han creado las vistas.
+
+![image](https://github.com/user-attachments/assets/18d713a6-615e-4e8d-90c9-663ea53d3816)
+
+![image](https://github.com/user-attachments/assets/2033f9a0-3b9d-41ca-b45a-bc6b83a027af)
+
+•	Ahora crearemos un panel de control.
+
+![image](https://github.com/user-attachments/assets/a9fd1d51-4ff6-4ace-9309-a4c4f041369a)
+
+Luego seleccionamos la base de datos con la que vamos trabajar.
+
+![image](https://github.com/user-attachments/assets/690d288c-546d-48d9-bdd3-f6367e93bdb1)
+
+![image](https://github.com/user-attachments/assets/e272db7a-52da-43a3-926a-459dc9ebbd1f)
+
+![image](https://github.com/user-attachments/assets/5c8da13c-acbd-4736-ada8-0cc064310d4f)
+
+![image](https://github.com/user-attachments/assets/ea0df002-a2fa-4d21-9763-cf4969924cb3)
+
+![image](https://github.com/user-attachments/assets/467e2935-e6b6-4916-8d3d-8a29aae3b743)
+
+![image](https://github.com/user-attachments/assets/bf583e47-4274-4c2e-9627-cb1961adc1ea)
+
+![image](https://github.com/user-attachments/assets/56c2e6c1-cd6a-490e-a961-41bcfd04a52a)
