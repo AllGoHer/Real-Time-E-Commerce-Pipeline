@@ -486,7 +486,7 @@ Código:
 
 A continuación explicare lo que hace este código línea por línea.
 
-*1. Importaciones y Configuración Inicial*
+**1. Importaciones y Configuración Inicial**
 
 Código:
 
@@ -536,7 +536,7 @@ Código:
           
 •	Definimos qué eventos son "correctos" para nuestro negocio y cuáles son basura que no debería procesar el sistema de analítica.
 
-*2. La Función de Tiempo (Simulando "Late Data")*
+**2. La Función de Tiempo (Simulando "Late Data")**
 
 Código:
 
@@ -557,7 +557,7 @@ Código:
 
 •	💡 Para qué sirve: Esto genera eventos que parecen haber ocurrido hace 1 día, 3 días o 5 días. Es fundamental para probar los Watermarks (Marcas de agua) en Databricks, para ver si tu sistema es capaz de procesar un evento viejo que llega tarde.
 
-*3. La Fábrica de Eventos (Simulando Datos Sucios)*
+**3. La Fábrica de Eventos (Simulando Datos Sucios)**
 
 Código:
 
@@ -637,7 +637,7 @@ Código:
 
 •	Devuelve una tupla. El customer_id lo separa porque lo usará como Key de Kafka. El resto del diccionario es el Value.
 
-*4.	El Bucle Infinito (El Motor de Streaming)*
+**4.	El Bucle Infinito (El Motor de Streaming)**
 
 Código:
 
@@ -905,7 +905,7 @@ Código:
 
 •	Verificaciones finales de moneda y una redundancia de seguridad usando la bandera que venía en el JSON original.
 
-5.	El Bucle Infinito (El Motor en marcha)
+**5.	El Bucle Infinito (El Motor en marcha)**
 
 Código:
 
@@ -943,8 +943,6 @@ Código:
 
 •	El camino de la basura: Si no pasó la validación, simplemente lo ignora e imprime que lo tiró. 
 
-
-
 Código:
               
         consumer.commit()
@@ -955,11 +953,12 @@ El resultado visual en tu consola
 
 Cuando ejecutes esto (junto con el producer.py en otra ventana), verás algo así, demostrando que tu filtro de calidad funciona:
 
-text
-FORWARDED | key=CUST_2 | event_type=PAGE_VIEW
-DROPPED   | key=CUST_1 | reason=invalid  <-- (Era un monto negativo o un CLICK)
-FORWARDED | key=CUST_3 | event_type=PURCHASE
-DROPPED   | key=CUST_5 | reason=invalid  <-- (Faltaba el customer_id)
+text:
+
+      FORWARDED | key=CUST_2 | event_type=PAGE_VIEW
+      DROPPED   | key=CUST_1 | reason=invalid  <-- (Era un monto negativo o un CLICK)
+      FORWARDED | key=CUST_3 | event_type=PURCHASE
+      DROPPED   | key=CUST_5 | reason=invalid  <-- (Faltaba el customer_id)
 
 
 •	Ahora en la terminal corremos el archivo stream_processor.py.
@@ -982,7 +981,7 @@ Y ahora observamos en pestaña de consumer.
 
 ![image](https://github.com/user-attachments/assets/4f201689-ce24-4ba9-ade4-32a6b9a3502b)
 
-•	CAPA DORADA CON SNOWFLAKE
+### CAPA DORADA CON SNOWFLAKE
 
 1.	Creamos una base datos.
 
