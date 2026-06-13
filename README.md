@@ -182,13 +182,13 @@ Define el nombre del primer contenedor que se va a levantar.
 
 Código: 
 
-        image: apache/kafka:latest
+         image: apache/kafka:latest
 
 Le dice a Docker que descargue la imagen oficial directamente de Apache (no de terceros como Confluent). La versión latest incluye el modo KRaft nativo.
 
 Código:
 
-        container_name: Kafka
+         container_name: Kafka
 
 Le da un nombre fijo al contenedor. Esto es vital para la red interna de Docker. Permite que otros contenedores (como la UI) lo encuentren escribiendo "kafka" en lugar de una IP aleatoria.
 
