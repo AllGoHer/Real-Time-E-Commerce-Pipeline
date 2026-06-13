@@ -98,7 +98,77 @@ Estructura del Código:
 
 **Terminal 3:** <mark>python snowflake_consumer.py</mark> (Cargar a la nube).
 
-![image]()
+
+## 🚀 DESARROLLO
+
+1.	Iniciamos activando el docker desktop.
+   
+2.	Creamos una carpeta Kafka-ecom en la terminal.
+
+   Código:
+
+           mkdir kafka-ecom
+
+luego ingresamos a la carpeta creada
+
+  Código:
+
+          cd kafka-ecom
+
+C:\Users\User\kafka-ecom>
+
+![image](https://github.com/user-attachments/assets/a17e73ee-d1cd-4946-8827-f01c3627f209)
+
+3.	Luego abrimos VSC y vinculamos con la carpeta Kafka-ecom y, luego creamos nuestro archivo docker-compose.yaml para levantar Kafka en modo KRaft (sin ZooKeeper), que es la arquitectura de última generación.
+
+Código:
+
+        services:
+          kafka:
+            image: apache/kafka:latest
+            container_name: kafka
+            ports:
+              - "9092:9092"
+              - "29092:29092"
+            environment:
+              # ---- KRaft core ----
+              KAFKA_NODE_ID: 1
+              KAFKA_PROCESS_ROLES: broker,controller
+              KAFKA_CONTROLLER_QUORUM_VOTERS: 1@kafka:9093
+
+              # ---- Listeners (ALL roles must appear here) ----
+              KAFKA_LISTENERS: PLAINTEXT://0.0.0.0:9092,PLAINTEXT_EXTERNAL://0.0.0.0:29092,CONTROLLER://0.0.0.0:9093
+
+              # ---- Advertised addresses ----
+              KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092,PLAINTEXT_EXTERNAL://localhost:29092
+
+              # ---- Controller configuration ----
+              KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
+              KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+
+              KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+              KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+              KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+
+              # ---- Protocol mapping ----
+              KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_EXTERNAL:PLAINTEXT,CONTROLLER:PLAINTEXT
+
+              # ---- Storage ----
+              KAFKA_LOG_DIRS: /tmp/kraft-combined-logs
+
+          kafka-ui:
+            image: provectuslabs/kafka-ui:latest
+            container_name: kafka-ui
+            depends_on:
+              - kafka
+            ports:
+              - "8080:8080"
+            environment:
+              KAFKA_CLUSTERS_0_NAME: local-kafka
+              KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: kafka:9092
+
+
+
 
 ![image]()
 
