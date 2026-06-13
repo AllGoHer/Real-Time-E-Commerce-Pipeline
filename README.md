@@ -37,8 +37,8 @@ El proyecto aplica el patrón ***Medallion Architecture*** sobre un flujo de str
 
 El generador de datos no es aleatorio puro. Está diseñado con un propósito arquitectónico:
 
-**25% de Eventos Inválidos:** Simula fallos reales de sensores o apps móviles (IDs nulos, montos negativos, tipos de evento no reconocidos).
-**Backdated Timestamps:** Genera eventos con fechas de hasta 6 días en el pasado. Esto es vital para preparar el terreno para probar estrategias de Watermarks y manejo de Late Data en sistemas como Spark Streaming.
+* **25% de Eventos Inválidos:** Simula fallos reales de sensores o apps móviles (IDs nulos, montos negativos, tipos de evento no reconocidos).
+* **Backdated Timestamps:** Genera eventos con fechas de hasta 6 días en el pasado. Esto es vital para preparar el terreno para probar estrategias de Watermarks y manejo de Late Data en sistemas como Spark Streaming.
 
 **2. Preservación del Orden por Key (Particionamiento)**
 Al usar customer_id como Message Key en el productor, se garantiza que todos los eventos de un mismo cliente se enruten a la misma partición de Kafka. Esto asegura que, si un cliente añade un producto al carrito y luego lo compra en el siguiente segundo, el consumidor final leerá esos eventos en el orden exacto en que ocurrieron.
