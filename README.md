@@ -81,6 +81,23 @@ Estructura del Código:
 
 ***snowflake_consumer.py:*** Actúa como puente entre el mundo del Streaming (Kafka) y el mundo Batch (Snowflake). Gestiona la conversión de tipos de datos de Python a Snowflake (mayúsculas) y la inyección masiva. 
 
+
+## ⚙️ Cómo ejecutar este proyecto
+
+**Infraestructura:** Levantar el clúster de Kafka mediante <mark>**docker-compose up -d.**</mark>
+
+**Tópicos:** Crear los tópicos necesarios (<mark>**raw_events, clean_events**</mark>) con 3 particiones.
+
+**Configuración Snowflake:** Actualizar las credenciales en <mark>**snowflake_consumer.py**</mark> y crear la tabla destino <mark>**KAFKA_EVENTS_SILVER.**</mark>
+
+**Ejecución en orden:**
+
+**Terminal 1:** <mark>python producer.py</mark> (Iniciar la lluvia de eventos).
+
+**Terminal 2:** <mark>python stream_processor.py</mark> (Limpiar en tiempo real).
+
+**Terminal 3:** <mark>python snowflake_consumer.py</mark> (Cargar a la nube).
+
 ![image]()
 
 ![image]()
