@@ -31,6 +31,26 @@ El proyecto aplica el patrón ***Medallion Architecture*** sobre un flujo de str
 ▼📈 [ SQL Gold Transformations & Dashboards ]
 
 
+## 🧠 Decisiones Arquitectónicas
+
+**1. Inyección Controlada de Caos (El Productor)**
+
+El generador de datos no es aleatorio puro. Está diseñado con un propósito arquitectónico:
+
+**25% de Eventos Inválidos:** Simula fallos reales de sensores o apps móviles (IDs nulos, montos negativos, tipos de evento no reconocidos).
+**Backdated Timestamps:** Genera eventos con fechas de hasta 6 días en el pasado. Esto es vital para preparar el terreno para probar estrategias de Watermarks y manejo de Late Data en sistemas como Spark Streaming.
+
+**2. Preservación del Orden por Key (Particionamiento)**
+Al usar customer_id como Message Key en el productor, se garantiza que todos los eventos de un mismo cliente se enruten a la misma partición de Kafka. Esto asegura que, si un cliente añade un producto al carrito y luego lo compra en el siguiente segundo, el consumidor final leerá esos eventos en el orden exacto en que ocurrieron.
+
+**3. Semántica "At-Least-Once" y Gestión de Offsets**
+Tanto el stream_processor.py como el snowflake_consumer.py utilizan enable_auto_commit=False.
+
+**El problema del Auto-Commit:** Si Kafka avanzara el offset automáticamente al leer un mensaje, y el script falla justo antes de escribir en Snowflake, esos datos se perderían para siempre.
+**La solución:** El offset solo se confirma (consumer.commit()) después de una inserción exitosa en Snowflake o en el tópico limpio. Cero pérdida de datos.
+
+**4. Micro-batching para Snowflake (El Consumidor Final)**
+Hacer una conexión a Snowflake por cada evento individual destruiría la red y los créditos de la cuenta cloud. El snowflake_consumer.py implementa un patrón de búfer: acumula 10 eventos en memoria (BATCH_SIZE = 10), crea un DataFrame de Pandas y utiliza la función write_pandas de Snowflake para hacer una inserción masiva (Bulk Insert) altamente eficiente.
 
 ![image]()
 
