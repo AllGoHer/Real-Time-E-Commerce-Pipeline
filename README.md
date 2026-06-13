@@ -52,6 +52,25 @@ Tanto el stream_processor.py como el snowflake_consumer.py utilizan enable_auto_
 **4. Micro-batching para Snowflake (El Consumidor Final)**
 Hacer una conexión a Snowflake por cada evento individual destruiría la red y los créditos de la cuenta cloud. El snowflake_consumer.py implementa un patrón de búfer: acumula 10 eventos en memoria (BATCH_SIZE = 10), crea un DataFrame de Pandas y utiliza la función write_pandas de Snowflake para hacer una inserción masiva (Bulk Insert) altamente eficiente.
 
+
+## 🛠️ Tech Stack
+
+**Streaming:** Apache Kafka (Desplegado en modo KRaft sin ZooKeeper vía Docker).
+**Procesamiento:** Python Puro (kafka-python).
+**Data Warehouse:** Snowflake (Ingesta vía Connector y Pandas Tools).
+**Serialización:** JSON (Simulando contratos de datos desacoplados).
+
+## 📂 Estructura del Código
+
+Estructura del Código: 
+
+                      ├── docker-compose.yml          # Infraestructura KRaft de Kafka
+                      ├── producer.py                 # Generador de eventos (Bronze Ingestion)
+                      ├── stream_processor.py         # Motor de validación y limpieza (Silver Processing)
+                      ├── snowflake_consumer.py       # Ingesta por micro-lotes a Snowflake (Data Loader)
+                      └── requirements.txt            # Dependencias del proyecto
+
+                      
 ![image]()
 
 ![image]()
