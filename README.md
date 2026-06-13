@@ -168,36 +168,631 @@ Código:
               KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: kafka:9092
 
 
+🧠<mark>**EXPLICACION DEL CÓDIGO**</mark>
+
+Ahora desglosare y explicare paso a paso en que consiste este código de docker-compose.
+
+**•	Sección 1:** El Servicio Principal (kafka)
+
+Código: 
+
+        kafka:
+
+Define el nombre del primer contenedor que se va a levantar.
+
+Código: 
+
+        image: apache/kafka:latest
+
+Le dice a Docker que descargue la imagen oficial directamente de Apache (no de terceros como Confluent). La versión latest incluye el modo KRaft nativo.
+
+Código:
+
+        container_name: Kafka
+
+Le da un nombre fijo al contenedor. Esto es vital para la red interna de Docker. Permite que otros contenedores (como la UI) lo encuentren escribiendo "kafka" en lugar de una IP aleatoria.
+
+Código:
+
+        ports:
+          - "9092:9092"
+          - "29092:29092"
+
+Mapeo de puertos (Host : Contenedor):
+
+•	9092: Se usa principalmente para la comunicación interna entre contenedores de Docker.
+•	29092: Es el puerto que expones a tu computadora Windows (Host). Cuando tu código Python usa localhost:29092, entra por aquí.
+
+Código:
+
+        environment:
+
+Aquí comienzan las variables de configuración interna del servidor de Kafka.
+
+Código:
+
+         # ---- KRaft core ----
+         KAFKA_NODE_ID: 1
+   
+En la era antigua (con ZooKeeper), esto se llamaba broker.id. Es el identificador único de este servidor dentro del clúster.
+
+Código:
+
+          KAFKA_PROCESS_ROLES: broker,controller
 
 
-![image]()
+¡LA LÍNEA MÁS IMPORTANTE DE ESTE ARCHIVO! En el pasado, necesitabas levantar 3 servidores de ZooKeeper aparte para gestionar los metadatos (qué tópico existe, dónde están las particiones). Al poner broker,controller, le estás diciendo a este contenedor: "Tú vas a ser el que reciba los datos (broker) Y el que guarde la metadata (controller)". Esto elimina la necesidad de ZooKeeper por completo.
 
-![image]()
+Código:
 
-![image]()
+         KAFKA_CONTROLLER_QUORUM_VOTERS: 1@kafka:9093
 
-![image]()
+Como este nodo es el controlador, necesita saber cómo votar consigo mismo. Le dice: "El votante número 1 está en la dirección de red interna kafka en el puerto 9093".
 
-![image]()
+Código:
 
-![image]()
+         # ---- Listeners (ALL roles must appear here) ----
+         KAFKA_LISTENERS:           PLAINTEXT://0.0.0.0:9092,PLAINTEXT_EXTERNAL://0.0.0.0:29092,CONTROLLER://0.0.0.0:9093
 
-![image]()
+Los "Oídos" de Kafka. Le dice en qué direcciones físicas debe abrir puertos para escuchar conexiones.
 
-![image]()
+•	0.0.0.0 significa "escucha en todas las redes disponibles".
 
-![image]()
+•	Define 3 oídos: uno para dentro de Docker (PLAINTEXT), uno para tu Windows (PLAINTEXT_EXTERNAL), y uno privado para la comunicación del controlador (CONTROLLER en el 9093).
 
-![image]()
+Código:
 
-![image]()
+          # ---- Advertised addresses ----
+          KAFKA_ADVERTISED_LISTENERS:      PLAINTEXT://kafka:9092,PLAINTEXT_EXTERNAL://localhost:29092
 
-![image]()
+La "Tarjeta de Presentación" de Kafka. Cuando un cliente (Python o la UI) se conecta, Kafka le devuelve esta lista para decirle: "Para hablarme, usa estas direcciones".
 
-![image]()
+•	Si te conectas desde otro contenedor Docker, Kafka le devuelve kafka:9092.
 
-![image]()
-![image]()
+•	Si te conectas desde tu Windows, Kafka te devuelve localhost:29092. 
+
+Código:
+          # ---- Controller configuration ----
+          KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
+
+Enlaza el nombre lógico "CONTROLLER" con el socket físico del puerto 9093 definido en los Listeners.
+
+Código:
+
+          KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+
+Si tuvieras varios servidores de Kafka, ellos hablarían entre sí usando el protocolo PLAINTEXT (puerto 9092).
+
+Código:
+     
+        KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+        KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+        KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+        
+La regla de la supervivencia (Replicación). Estas variables le dicen a Kafka: "Copia los datos de control interno (offsets y transacciones) a '1' servidor". ¿Por qué 1? Porque solo tienes UN contenedor de Kafka levantado. Si tuvieras 3 contenedores de Kafka, esto tendría que ser 3 para que los datos sobrevivan si un servidor se quema.
+
+Código:
+         # ---- Protocol mapping ----
+         KAFKA_LISTENER_SECURITY_PROTOCOL_MAP:          PLAINTEXT:PLAINTEXT,PLAINTEXT_EXTERNAL:PLAINTEXT,CONTROLLER:PLAINTEXT
+
+Mapea los nombres de los listeners a protocolos de seguridad. En este caso, todo es PLAINTEXT (sin encriptación SSL/SASL), que es lo correcto para un entorno de aprendizaje local.
+
+Código:
+       # ---- Storage ----
+       KAFKA_LOG_DIRS: /tmp/kraft-combined-logs
+
+El directorio físico dentro del contenedor Linux donde se guardarán los mensajes JSON que envía tu productor.py en el disco duro.
+
+**Sección 2: La Interfaz Gráfica (kafka-ui)**
+
+Código:
+        kafka-ui:
+        image: provectuslabs/kafka-ui:latest
+       container_name: kafka-ui
+
+
+Instancia una herramienta visual muy popular para no tener que usar la terminal negra de Linux para ver los mensajes.
+
+Código:
+        depends_on:
+         - kafka
+
+Orden de arranque vital. Le dice a Docker: "No enciendas la UI hasta que el contenedor kafka esté 100% levantado". Si no pones esto, la UI intentará conectarse a Kafka antes de que exista y fallará.
+
+Código:
+    
+        ports:
+          - "8080:8080"
+
+Expone la interfaz web en tu navegador Windows: http://localhost:8080.
+
+Código:
+        environment:
+          KAFKA_CLUSTERS_0_NAME: local-kafka
+
+El nombre bonito que verás en el menú desplegable al entrar a la página web.
+
+Código:
+      
+        KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: kafka:9092
+
+¡OJO AQUÍ! Fíjate que NO dice localhost:29092. ¿Por qué? Porque la UI es un contenedor Docker. Si la UI usara localhost, estaría buscando a Kafka dentro de su propio contenedor, y ahí no hay nada. Al usar kafka:9092, usa la red interna de Docker para hablar directamente con el otro contenedor. ¡Es la misma red que usan los consumidores de Python si los correras dentro de Docker!
+
+
+Ahora volvemos al desarrollo del proyecto. Levantaremos el docker-compose para crear el container.
+
+Código:
+
+              docker compose up -d
+
+
+![image](https://github.com/user-attachments/assets/4d925b50-d273-4e82-a664-4f49d6737a70)
+
+Ahora verificamos si ya está activo el contenedor en docker desktop.
+
+![image](https://github.com/user-attachments/assets/a7b0dd08-9d85-4160-8a0a-4c1cc0b02766)
+
+Ahora abrimos la interface de usuario (localhost:8080)
+
+![image](https://github.com/user-attachments/assets/6b7fed07-c034-460b-9b29-9d5016a51cb2)
+
+Ahora crearemos un entorno virtual para nuestro proyecto.
+
+Código:
+
+          python -m venv venv
+
+podemos verificar la creación del entorno virtual en VSC.
+
+
+![image](https://github.com/user-attachments/assets/c22e1991-ac7d-4ce3-af26-06ed84367d99)
+
+Ahora activamos el entorno creado.
+
+código:
+
+         venv\Scripts\activate
+
+
+![image](https://github.com/user-attachments/assets/f24e0e45-32b8-4737-88e9-7db175f4447e)
+
+Código:
+
+          pip freeze
+
+código:
+
+          pip install kafka-python
+
+
+![image](https://github.com/user-attachments/assets/ad1a6879-d9ac-4638-8ad7-dc6011f87c2d)
+
+
+Nuevamente aplicamos pip freeze para ver la nueva dependencia instalada
+
+Código:
+
+          pip freeze
+
+
+![image](https://github.com/user-attachments/assets/7dda8e2e-cacd-47da-b102-7fd2a11735e5)
+
+
+•	Crearemos la carpeta de requerimientos desde la terminal.
+
+Código:
+
+          pip freeze > requirements.txt
+
+
+![image](https://github.com/user-attachments/assets/6065867c-d952-4633-928d-817667c40b7d)
+
+•	Ahora creamos el archivo producer.py en VSC. 
+
+Este archivo producer.py no es un simple generador de datos aleatorios. Es una herramienta de pruebas de estrés y calidad (Test Harness) diseñada específicamente para poner a prueba pipelines de Streaming.
+
+Está programado para simular el caos del mundo real: datos que llegan tarde, datos que están rotos, y diferentes tipos de usuarios.
+
+Código:
+
+        import json
+        import random
+        import time
+        import uuid
+        from datetime import datetime, timedelta, timezone
+        from kafka import KafkaProducer
+
+        BOOTSTRAP_SERVERS="localhost:29092"
+        Topic_NAME= "raw_events"
+
+        Producer = KafkaProducer(
+            bootstrap_servers="localhost:29092",  #BOOTSTRAP_SERVERS,
+            key_serializer=lambda k: k.encode("utf-8") if k else None,
+            value_serializer=lambda v: json.dumps(v).encode("utf-8")
+    
+        )
+
+        EVENT_TYPES = ["PAGE_VIEW", "ADD_TO_CART", "PURCHASE"]
+        INVALID_EVENT_TYPES = ["CLICK", "VIEW", "PAY"]
+
+        def random_timestamp_last_6_days():
+            now = datetime.now(timezone.utc)
+            past = now - timedelta(days=6)
+
+            random_seconds = random.uniform(0, (now - past).total_seconds())
+            return past + timedelta(seconds=random_seconds)
+
+        def generate_event():
+            is_invalid = random.random() < 0.25
+
+            customer_id = f"CUST_{random.randint(1,5)}"
+            event_type = random.choice(EVENT_TYPES)
+            amount = round(random.uniform(10,500),2)
+            currency = "USD"
+
+            invalid_field = None
+            if is_invalid:
+                invalid_field = random.choice([
+                    "customer_id",
+                    "event_type",
+                    "amount",
+                    "currency"
+                ])
+    
+            event = {
+                "event_id": str(uuid.uuid4()),
+                "customer_id": None if invalid_field == "customer_id" else customer_id,
+                "event_type": (
+                    random.choice(INVALID_EVENT_TYPES)
+                    if invalid_field == "event_type"
+                    else event_type
+                ),
+                "amount": (
+                    random.uniform(-500, -10)
+                    if invalid_field == "amount"
+                    else amount
+                ),
+                "currency": None if invalid_field == "currency" else currency,
+                "event_timestamp": random_timestamp_last_6_days().isoformat(),
+                "is_valid": not is_invalid,
+                "invalid_field": invalid_field
+            }
+
+            return event["customer_id"], event
+
+        print("Starting Kafka producer...")
+
+        while True:
+            key, event = generate_event()
+
+            Producer.send(
+                topic=Topic_NAME,
+                key=key,
+                value=event
+            )
+
+            print(f"Produced event | key={key} | valid={event['is_valid']}")
+
+            time.sleep(1)
+
+
+<mark>**Explicación del Código**</mark>
+
+A continuación explicare lo que hace este código línea por línea.
+
+*1. Importaciones y Configuración Inicial*
+
+Código:
+
+        import json
+        import random
+        import time
+        import uuid
+        from datetime import datetime, timedelta, timezone
+        from kafka import KafkaProducer
+
+•	json: Para convertir los diccionarios de Python en cadenas de texto JSON.
+
+•	random / time: Para generar aleatoriedad y pausar la ejecución.
+
+•	uuid: Para generar identificadores universalmente únicos (evita colisiones de IDs).
+
+•	timezone: Importación moderna para manejar tiempos UTC sin que Python lance advertencias.
+
+•	KafkaProducer: El cliente que se conecta a Kafka.
+
+
+Código:
+
+        BOOTSTRAP_SERVERS="localhost:29092"
+        Topic_NAME= "raw_events"
+
+•	Definimos el servidor de conexión (tu Docker en Windows) y el nombre del canal (tópico) donde se van a arrojar los eventos.
+
+Código:
+
+        Producer = KafkaProducer(
+            bootstrap_servers="localhost:29092",  # Conexión a Kafka
+            key_serializer=lambda k: k.encode("utf-8") if k else None,
+            value_serializer=lambda v: json.dumps(v).encode("utf-8")
+        )
+
+•	Nota: Aquí se esta usando la variable escrita directamente en lugar de la variable BOOTSTRAP_SERVERS. Funciona igual, pero es una buena práctica usar la variable para no repetir código.
+
+•	key_serializer: Kafka exige que las Keys sean bytes. Esta función anónima (lambda) dice: "Si me envías una Key (ej. 'CUST_1'), conviértela a bytes UTF-8. Si me envías un None, déjalo como None".
+
+•	value_serializer: Kafka exige que los Values sean bytes. Esta lambda hace un proceso de 2 pasos: json.dumps(v) convierte el diccionario en un string JSON, y .encode("utf-8") lo convierte en bytes.
+
+  Código:
+          EVENT_TYPES = ["PAGE_VIEW", "ADD_TO_CART", "PURCHASE"]
+          INVALID_EVENT_TYPES = ["CLICK", "VIEW", "PAY"]
+          
+•	Definimos qué eventos son "correctos" para nuestro negocio y cuáles son basura que no debería procesar el sistema de analítica.
+
+*2. La Función de Tiempo (Simulando "Late Data")*
+
+Código:
+
+        def random_timestamp_last_6_days():
+            now = datetime.now(timezone.utc)
+            past = now - timedelta(days=6)
+
+            random_seconds = random.uniform(0, (now - past).total_seconds())
+            return past + timedelta(seconds=random_seconds)
+
+•	now: Obtiene la fecha y hora exacta de este segundo en UTC.
+
+•	past: Resta 6 días a la fecha actual.
+
+•	random_seconds: Calcula cuántos segundos hay en esos 6 días (518,400 segundos) y elige un número al azar entre 0 y ese máximo.
+
+•	return: Toma la fecha de hace 6 días y le suma esos segundos aleatorios.
+
+•	💡 Para qué sirve: Esto genera eventos que parecen haber ocurrido hace 1 día, 3 días o 5 días. Es fundamental para probar los Watermarks (Marcas de agua) en Databricks, para ver si tu sistema es capaz de procesar un evento viejo que llega tarde.
+
+*3. La Fábrica de Eventos (Simulando Datos Sucios)*
+
+Código:
+        def generate_event():
+        is_invalid = random.random() < 0.25
+        
+•	Lanza un dado virtual. Hay un 25% de probabilidad de que el evento que se va a generar sea defectuoso (simula fallos de red, bugs en la app móvil, sensores rotos).
+
+Código:
+
+        customer_id = f"CUST_{random.randint(1,5)}"
+        event_type = random.choice(EVENT_TYPES)
+        amount = round(random.uniform(10,500),2)
+        currency = "USD"
+
+•	Crea datos "buenos" por defecto. Solo hay 5 clientes ficticios (del 1 al 5) para que sea fácil rastrearlos. Montos aleatorios entre 10 y 500.
+
+Código:
+    
+        invalid_field = None
+        if is_invalid:
+           invalid_field = random.choice([
+                "customer_id",
+                "event_type",
+                "amount",
+                "currency"
+            ])
+            
+•	Si el evento fue marcado como inválido, decide qué campo se va a corromper de forma aleatoria.
+
+Código:
+
+        event = {
+            "event_id": str(uuid.uuid4()), # ID único irrepetible (ej: '550e8400-e29b...')
+            "customer_id": None if invalid_field == "customer_id" else customer_id,
+
+•	Si el campo a corromper era el ID del cliente, lo pone como Nulo (None).
+
+Código:
+
+        "event_type": (
+            random.choice(INVALID_EVENT_TYPES)
+            if invalid_field == "event_type"
+            else event_type
+        ),
+        
+•	Si el campo a corromper era el tipo de evento, cambia un "PURCHASE" válido por un "CLICK" inválido (que no existe en nuestro catálogo válido).
+
+Código:
+
+        "amount": (
+            random.uniform(-500, -10)
+            if invalid_field == "amount"
+            else amount
+        ),
+        
+•	Si el campo a corromper era el monto, genera un número negativo (lo cual es un error crítico en finanzas).
+
+Código:
+        "currency": None if invalid_field == "currency" else currency,
+        "event_timestamp": random_timestamp_last_6_days().isoformat(),
+
+•	Si la moneda era el campo roto, la pone en Nulo. El timestamp siempre usa la función del pasado y lo convierte a formato texto estándar ISO (ej: "2024-05-20T14:32:10.123456+00:00").
+
+Código:
+
+        "is_valid": not is_invalid,
+        "invalid_field": invalid_field
+    }
+
+•	Bandera de calidad: Pone True o False para que los sistemas downstream puedan filtrar rápido. invalid_field dice exactamente por qué falló (esto es oro puro para hacer dashboards de "Calidad de Datos").
+
+Código:
+
+        return event["customer_id"], evento
+
+•	Devuelve una tupla. El customer_id lo separa porque lo usará como Key de Kafka. El resto del diccionario es el Value.
+
+*4.	El Bucle Infinito (El Motor de Streaming)*
+
+Código:
+
+        print("Starting Kafka producer...")
+
+        while True:
+
+•	Bucle infinito. El productor no se detiene hasta que presiones Ctrl + C. Simula una aplicación móvil enviando datos eternamente.
+
+Código:
+
+        key, event = generate_event()
+
+•	Llama a la fábrica y desempaqueta la tupla.
+
+Código:
+
+        Producer.send(
+            topic=Topic_NAME,
+            key=key,
+            value=event
+        )
+
+•	topic: A qué canal mandarlo (raw_events).
+
+•	key=key: Al enviar el CUST_1 como key, Kafka garantiza que todos los eventos de ese cliente caigan en la misma partición. Esto asegura que, si el cliente compró y luego devolvió, los eventos se leen en el orden exacto en que ocurrieron.
+
+•	value=event: El diccionario JSON completo.
+
+Código:
+
+        print(f"Produced event | key={key} | valid={event['is_valid']}")
+
+        time.sleep(1)
+
+•	Imprime en tu consola para que veas que está trabajando.
+
+•	time.sleep(1): MUY IMPORTANTE. Pausa la ejecución 1 segundo. Si quitas esto, Python inundará tu red y tu CPU intentando enviar millones de eventos por segundo, y tu computadora colapsará. Simula un ritmo realista de llegada de datos.
+
+
+•	Luego crearemos el tema.
+
+Código:
+
+        docker exec -it kafka bash
+
+
+![image](https://github.com/user-attachments/assets/3e4c2c77-be75-41e4-a690-13e5caad753a)
+
+Código:
+
+	       cd /opt/kafka/bin
+
+•	Ahora creamos un tópico y definimos la arquitectura de escalabilidad y resistencia a fallos.
+
+código:
+
+        ./kafka-topics.sh --create --topic raw_events --bootstrap-server kafka:9092 --partitions 3 --replication-factor 1
+
+<mark>**NOTA: ¿Qué es lo que quiere decir este código?**</mark>
+
+*Desglose línea por línea:*
+
+•	**./kafka-topics.sh** Es el script ejecutable que viene con la instalación de Kafka. Está en la carpeta /opt/kafka/bin/. El ./ le dice a la consola de Linux: "Ejecuta este archivo que está en la carpeta actual".
+
+•	**--create** Es la acción. Le dice a Kafka que no queremos leer, listar o borrar, sino crear un nuevo tópico desde cero.
+
+•	**--topic raw_events** Es el nombre que le damos al "canal" donde vivirán los datos. 
+
+💡 Nota de Data Engineer: El nombre raw_events no es casualidad. Sugiere que estamos implementando la capa Bronze de la arquitectura Medallion en Kafka. Está guardando los eventos crudos (raw) tal como llegan, sin limpiar.
+
+•	**--bootstrap-server kafka:9092** Es la dirección IP y el puerto del clúster de Kafka al que te vas a conectar. 💡 Nota del entorno: Aquí está la magia del archivo docker-compose.yml. Si estuviéramos en Windows, tendría que usar localhost:29092. Pero como ejecutamos este comando dentro del contenedor Docker (en la terminal negra de Linux), usa el nombre interno del contenedor (kafka) y el puerto interno (9092). Es la ruta más rápida y directa.
+
+•	**--partitions 3** (⚠️ Esta es la parte más importante) Le estás diciendo a Kafka: "No guardes todos los mensajes en una sola fila gigante. Divide este tópico en 3 cajas separadas (particiones)". ¿Por qué 3? Por escalabilidad y paralelismo. Si tienes 3 consumidores en tu group_id, Kafka automáticamente asignará la Partición 0 al Consumidor 1, la 1 al Consumidor 2, y la 2 al Consumidor 3. Pueden leer los datos al mismo tiempo. Si tuvieras 1 sola partición, los 3 consumidores se pelearían por ella y 2 se quedarían ociosos.
+
+•	**--replication-factor 1** Le estás diciendo a Kafka: "No hagas copias de seguridad de este tópico". ¿Por qué 1? Esto está directamente atado a tu docker-compose.yml. En el archivo se puso KAFKA_NODE_ID: 1. Solo se tiene un servidor (Broker) de Kafka corriendo. Si pusiera --replication-factor 2, Kafka intentaría copiar los datos a un segundo servidor... pero como no existe, el comando fallaría con un error de Insufficient replicas. En producción real (ej. AWS, Confluent), esto sería 3, por lo que, si un servidor se quema, los datos siguen seguros en los otros dos.
+
+
+Ahora verificamos en la interface de usuario de Kafka.
+
+![image](https://github.com/user-attachments/assets/dceea1b9-3b58-4c74-b2e7-c2a550915d93)
+
+![image](https://github.com/user-attachments/assets/1293dfdf-8d7f-495c-9c5a-3aa346b7257d)
+
+![image](https://github.com/user-attachments/assets/fb468831-dd65-4b00-86f5-28f890207d5a)
+
+Ahora abrimos una segunda terminal y creamos el mismo entorno virtual.
+
+![image](https://github.com/user-attachments/assets/13da95f8-0e07-49cf-b14f-1fb489921c37)
+
+Y ejecutamos producer.py
+
+![image](https://github.com/user-attachments/assets/5d19f77c-bd29-416a-b463-3c1ec2ddda82)
+
+•	Luego de un momento, rompemos el bucle con control C.
+
+Y verificamos en Kafka UI (localhost:8080)
+
+![image](https://github.com/user-attachments/assets/9171d139-9f14-41a5-b059-6364f5a00692)
+
+•	Ahora creamos un Motor de Procesamiento de Streaming en Tiempo Real que implementa exactamente la transición de la capa Bronze a la capa Silver de la Arquitectura Medallion, pero en Kafka. 
+
+Regresamos a VSC y creamos un archivo llamado stream_processor.py.
+
+Código:
+
+        import json
+        from kafka import KafkaConsumer, KafkaProducer
+
+        BOOTSTRAP_SERVERS="localhost:29092"
+        INPUT_TOPIC="raw_events"
+        OUTPUT_TOPIC="clean_events"
+        GROUP_ID="silver-stream-processor"
+
+        VALID_EVENT_TYPES = ["PAGE_VIEW", "ADD_TO_CART", "PURCHASE"]
+
+        consumer = KafkaConsumer(
+            INPUT_TOPIC,
+            bootstrap_servers="localhost:29092",
+            group_id=GROUP_ID,
+            auto_offset_reset="earliest",
+            enable_auto_commit=False,
+            key_deserializer=lambda k: k.decode("utf-8") if k else None,
+            value_deserializer=lambda v: json.loads(v.decode("utf-8"))
+        )
+
+        producer = KafkaProducer(
+            bootstrap_servers=BOOTSTRAP_SERVERS,
+            key_serializer=lambda k: k.encode("utf-8") if k else None,
+            value_serializer=lambda v: json.dumps(v).encode("utf-8")
+        )
+
+        def is_valid_event(event):
+            if not event.get("customer_id"):
+                return False
+            if event.get("event_type") not in VALID_EVENT_TYPES:
+                return False
+            if event.get("amount") is None or event.get("amount") <= 0:
+                return False
+            if not event.get("currency"):
+                return False
+            if event.get("is_valid") is not True:
+                return False
+            return True
+
+        print("Starting Silver Stream Processor....")
+
+        for message in consumer:
+            key = message.key
+            event = message.value
+
+            if is_valid_event(event):
+                producer.send(
+                    topic=OUTPUT_TOPIC,
+                    key=key,
+                   value=event
+                )
+                print(f"FORWARDED | key={key} | event_type={event['event_type']}")
+            else:
+                print(f"DROPPED | key={key} | reason=invalid")
+    
+            consumer.commit()
+
+
 ![image]()
 
 ![image]()
