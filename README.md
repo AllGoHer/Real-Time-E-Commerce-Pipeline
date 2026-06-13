@@ -22,15 +22,12 @@ El proyecto aplica el patrón ***Medallion Architecture*** sobre un flujo de str
 
 ## 🏗️ Arquitectura del Pipeline
 
-[ Python Producer ]    
-
-| (Genera datos con 25% de errores intencionales y timestamps del pasado)   
-
-▼🌀 [ Kafka Topic: raw_events ]  <-- CAPA BRONZE   |   
+[ Python Producer ]  (Genera datos con 25% de errores intencionales y timestamps del pasado)   
+▼🌀 [ Kafka Topic: raw_events ]  <-- CAPA BRONZE      
 ▼[ Stream Processor (Python) ]   | (Validación de reglas de negocio, descarte de basura, Manual Commits)   
-▼🌀 [ Kafka Topic: clean_events ] <-- CAPA SILVER (Streaming)   |   
+▼🌀 [ Kafka Topic: clean_events ] <-- CAPA SILVER (Streaming)     
 ▼[ Snowflake Loader (Python) ]   | (Agrupa en micro-lotes de 10, usa write_pandas para alta velocidad)   
-▼❄️ [ Snowflake Table: KAFKA_EVENTS_SILVER ] <-- ALMACENAMIENTO ANALÍTICO   |   
+▼❄️ [ Snowflake Table: KAFKA_EVENTS_SILVER ] <-- ALMACENAMIENTO ANALÍTICO      
 ▼📈 [ SQL Gold Transformations & Dashboards ]
 
 
