@@ -56,8 +56,11 @@ Hacer una conexión a Snowflake por cada evento individual destruiría la red y 
 ## 🛠️ Tech Stack
 
 **Streaming:** Apache Kafka (Desplegado en modo KRaft sin ZooKeeper vía Docker).
+
 **Procesamiento:** Python Puro (kafka-python).
+
 **Data Warehouse:** Snowflake (Ingesta vía Connector y Pandas Tools).
+
 **Serialización:** JSON (Simulando contratos de datos desacoplados).
 
 ## 📂 Estructura del Código
@@ -70,7 +73,14 @@ Estructura del Código:
                       ├── snowflake_consumer.py       # Ingesta por micro-lotes a Snowflake (Data Loader)
                       └── requirements.txt            # Dependencias del proyecto
 
-                      
+**Desglose de Archivos:**
+
+***producer.py:*** Genera el flujo continuo. Maneja la serialización JSON y asigna la Key de partición.
+
+***stream_processor.py:*** Aplica reglas de negocio estrictas (Catálogo de eventos válidos, montos positivos). Filtra el ruido antes de que contamine el Data Warehouse.
+
+***snowflake_consumer.py:*** Actúa como puente entre el mundo del Streaming (Kafka) y el mundo Batch (Snowflake). Gestiona la conversión de tipos de datos de Python a Snowflake (mayúsculas) y la inyección masiva. 
+
 ![image]()
 
 ![image]()
