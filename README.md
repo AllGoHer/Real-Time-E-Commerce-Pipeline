@@ -1,5 +1,5 @@
 # Real-Time-E-Commerce-Pipeline
-________________________________________________________________________________________________________________________________________________________________________________________________________________
+_______________________________________________________________________________________________________________________________________________________________________________________________________________
 
 ![image](https://github.com/user-attachments/assets/b730e3cd-374a-48ef-b0a0-760bd64035e1)  ![image](https://github.com/user-attachments/assets/a82a462d-be71-49da-bc05-060b36a031a3)  ![image](https://github.com/user-attachments/assets/64553162-699a-42db-949e-46d760b35d23)  ![image](https://github.com/user-attachments/assets/0ebf8c00-ca21-49a0-bcb1-3af27ce15afa)
 
@@ -7,8 +7,10 @@ ________________________________________________________________________________
 
 ![image](https://github.com/user-attachments/assets/4747f791-d9ee-4578-a1e8-137926ee151b)
 
-
+_______________________________________________________________________________________________________________________________________________________________________________________________________________
 ## 🎯 Descripción del Proyecto
+_______________________________________________________________________________________________________________________________________________________________________________________________________________
+
 La mayoría de los proyectos de Kafka se detienen en imprimir mensajes en una consola. Este proyecto simula un entorno de producción real: un pipeline de comercio electrónico (e-commerce) de extremo a extremo que ingesta eventos en tiempo real, aplica garantías de calidad de datos ***(semántica At-Least-Once)***, y delega la carga analítica a Snowflake.
 
 El proyecto aplica el patrón ***Medallion Architecture*** sobre un flujo de streaming continuo:
@@ -19,8 +21,9 @@ El proyecto aplica el patrón ***Medallion Architecture*** sobre un flujo de str
 
 **Gold (Snowflake):** Ingesta por micro-lotes y transformaciones analíticas vía SQL.
 
-
+_______________________________________________________________________________________________________________________________________________________________________________________________________________
 ## 🏗️ Arquitectura del Pipeline
+_______________________________________________________________________________________________________________________________________________________________________________________________________________
 
 [ Python Producer ]  (Genera datos con 25% de errores intencionales y timestamps del pasado)   
 ▼🌀 [ Kafka Topic: raw_events ]  <-- CAPA BRONZE      
@@ -30,8 +33,9 @@ El proyecto aplica el patrón ***Medallion Architecture*** sobre un flujo de str
 ▼❄️ [ Snowflake Table: KAFKA_EVENTS_SILVER ] <-- ALMACENAMIENTO ANALÍTICO      
 ▼📈 [ SQL Gold Transformations & Dashboards ]
 
-
+_______________________________________________________________________________________________________________________________________________________________________________________________________________
 ## 🧠 Decisiones Arquitectónicas
+_______________________________________________________________________________________________________________________________________________________________________________________________________________
 
 **1. Inyección Controlada de Caos (El Productor)**
 
@@ -53,7 +57,9 @@ Tanto el stream_processor.py como el snowflake_consumer.py utilizan enable_auto_
 Hacer una conexión a Snowflake por cada evento individual destruiría la red y los créditos de la cuenta cloud. El snowflake_consumer.py implementa un patrón de búfer: acumula 10 eventos en memoria (BATCH_SIZE = 10), crea un DataFrame de Pandas y utiliza la función write_pandas de Snowflake para hacer una inserción masiva (Bulk Insert) altamente eficiente.
 
 
+_______________________________________________________________________________________________________________________________________________________________________________________________________________
 ## 🛠️ Tech Stack
+_______________________________________________________________________________________________________________________________________________________________________________________________________________
 
 **Streaming:** Apache Kafka (Desplegado en modo KRaft sin ZooKeeper vía Docker).
 
@@ -63,7 +69,9 @@ Hacer una conexión a Snowflake por cada evento individual destruiría la red y 
 
 **Serialización:** JSON (Simulando contratos de datos desacoplados).
 
+_______________________________________________________________________________________________________________________________________________________________________________________________________________
 ## 📂 Estructura del Código
+_______________________________________________________________________________________________________________________________________________________________________________________________________________
 
 Estructura del Código: 
 
@@ -82,7 +90,9 @@ Estructura del Código:
 ***snowflake_consumer.py:*** Actúa como puente entre el mundo del Streaming (Kafka) y el mundo Batch (Snowflake). Gestiona la conversión de tipos de datos de Python a Snowflake (mayúsculas) y la inyección masiva. 
 
 
+_______________________________________________________________________________________________________________________________________________________________________________________________________________
 ## ⚙️ Cómo ejecutar este proyecto
+_______________________________________________________________________________________________________________________________________________________________________________________________________________
 
 **Infraestructura:** Levantar el clúster de Kafka mediante <mark>**docker-compose up -d.**</mark>
 
@@ -99,7 +109,10 @@ Estructura del Código:
 **Terminal 3:** <mark>python snowflake_consumer.py</mark> (Cargar a la nube).
 
 
+
+_______________________________________________________________________________________________________________________________________________________________________________________________________________
 ## 🚀 DESARROLLO
+_______________________________________________________________________________________________________________________________________________________________________________________________________________
 
 1.	Iniciamos activando el docker desktop.
    
